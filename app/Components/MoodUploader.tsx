@@ -3,18 +3,30 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import rekognition from "../lib/aws-config.js";
 import getAccessToken from "../lib/spotify";
-import { moodPlaylists } from "../utils/playlist"
-import { Emotion } from "aws-sdk/clients/rekognition.js";
 
+type Playlist = {
+    name: string, 
+    external_urls: {spotify : string},
+    images: {url:string}[], 
+    tracks : {
+        items : {preview_url : string | null}[]
+    }
+}
+type CuratedPlaylist = {
+        name: string
+        url: string,
+        image: string,
+        preview: string | null
+}
 export default function MoodUploader() {
-    const [image, setImage] = useState<any>(null);
+    const [image, setImage] = useState<Blob>();
     const [preview, setPreview] = useState<string>('');
-    const [mood, setMood] = useState<any>(null);
-    const [playlist, setPlaylist] = useState<any>([]);
+    const [mood, setMood] = useState<string>();
+    const [playlist, setPlaylist] = useState<CuratedPlaylist[]>([]);
     const [loading, setLoading] = useState(false);
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file: any = (e.target as HTMLInputElement).files;
+        const file = (e.target as HTMLInputElement).files;
         if (file?.length && file[0] instanceof Blob) {
             setImage(file[0]);
             setPreview(URL.createObjectURL(file[0]));
@@ -23,7 +35,7 @@ export default function MoodUploader() {
         }
     };
 
-    const fetchSpotifyPlaylist = async (mood: any) => {
+    const fetchSpotifyPlaylist = async () => {
         const accessToken = await getAccessToken();
 
         const response = await fetch(
@@ -36,9 +48,8 @@ export default function MoodUploader() {
         );
 
         const data = await response.json();
-        console.log(data)
-        let filteredData = data?.playlists?.items?.filter((playlist) => playlist != null)
-        return filteredData?.map((playlist) => ({
+        const filteredData = data?.playlists?.items?.filter((playlist:Playlist) => playlist != null)
+        return filteredData?.map((playlist:Playlist) => ({
             name: playlist?.name,
             url: playlist?.external_urls.spotify,
             image: playlist?.images?.[0]?.url,
@@ -64,11 +75,11 @@ export default function MoodUploader() {
                 try {
                     const response = await rekognition.detectFaces(params).promise();
                     const emotions = response?.FaceDetails?.[0]?.Emotions || [];
-                    const topEmotion: Emotion = emotions.sort((a, b) => (b.Confidence ?? 0) - (a.Confidence ?? 0))[0];
+                    const topEmotion = emotions?.sort((a, b) => (b.Confidence ?? 0) - (a.Confidence ?? 0))[0];
 
                     if (topEmotion) {
                         setMood(topEmotion?.Type);
-                        let playlistData = await fetchSpotifyPlaylist(topEmotion?.Type)
+                        const playlistData = await fetchSpotifyPlaylist()
                         setPlaylist(playlistData);
                         setLoading(false);
                     } else {
@@ -77,7 +88,7 @@ export default function MoodUploader() {
                 } catch (error) {
                     console.error("Error detecting mood:", error);
                     setMood("Error detecting mood: 😕");
-                    setPlaylist(["No songs available"]);
+                    // setPlaylist(["No songs available"]);
                     setLoading(false);
                 }
             };
