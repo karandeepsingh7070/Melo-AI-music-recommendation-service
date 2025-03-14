@@ -11,6 +11,7 @@ export default function MoodUploader() {
     const [preview, setPreview] = useState<string>('');
     const [mood, setMood] = useState<any>(null);
     const [playlist, setPlaylist] = useState<any>([]);
+    const [loading, setLoading] = useState(false);
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file: any = (e.target as HTMLInputElement).files;
@@ -41,12 +42,13 @@ export default function MoodUploader() {
             name: playlist?.name,
             url: playlist?.external_urls.spotify,
             image: playlist?.images?.[0]?.url,
+            preview: playlist.tracks?.items?.[0]?.preview_url || null
         }));
     };
 
     const detectMood = async () => {
         if (!image) return;
-
+        setLoading(true);
         const reader = new FileReader();
         reader.readAsArrayBuffer(image);
 
@@ -67,8 +69,8 @@ export default function MoodUploader() {
                     if (topEmotion) {
                         setMood(topEmotion?.Type);
                         let playlistData = await fetchSpotifyPlaylist(topEmotion?.Type)
-                        console.log(playlistData)
                         setPlaylist(playlistData);
+                        setLoading(false);
                     } else {
                         setMood("Unknown 😕");
                     }
@@ -76,6 +78,7 @@ export default function MoodUploader() {
                     console.error("Error detecting mood:", error);
                     setMood("Error detecting mood: 😕");
                     setPlaylist(["No songs available"]);
+                    setLoading(false);
                 }
             };
         }
@@ -126,25 +129,35 @@ export default function MoodUploader() {
                         Mood Detected: {mood}
                     </motion.p>
                 )}
-                {playlist.length > 0 && (
-                    <div className="mt-4">
-                        {playlist.map((item, index) => (
-                            <motion.a
-                                key={index}
-                                href={item.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center bg-white shadow rounded-md p-2 mb-2"
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ duration: 0.3, delay: index * 0.1 }}
-                            >
-                                <img src={item.image} alt={item.name} className="w-12 h-12 rounded-md" />
-                                <span className="ml-4 text-sm font-semibold">{item.name}</span>
-                            </motion.a>
-                        ))}
+                {loading ? (
+                    <motion.div
+                        className="mt-4 animate-spin w-8 h-8 border-4 mx-auto border-blue-400 border-t-transparent rounded-full"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                    />
+                ) : <>{playlist.length > 0 && (
+                    <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {playlist.map((item, index) => (
+                        <motion.a
+                            href={item.url}
+                          key={index}
+                          className="bg-white shadow-lg rounded-lg p-4 flex flex-col items-center transition transform hover:scale-105"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: index * 0.1 }}
+                        >
+                          <img src={item.image} alt={item.name} className="w-16 h-16 rounded-md mb-2 shadow-md" />
+                          <span className="text-sm font-semibold text-gray-700">{item.name}</span>
+                          {item.preview && (
+                            <audio controls className="mt-2 w-full">
+                              <source src={item.preview} type="audio/mpeg" />
+                              Your browser does not support the audio element.
+                            </audio>
+                          )}
+                        </motion.a>
+                      ))}
                     </div>
-                )}
+                  )}</>}
 
             </motion.div>
         </div>
